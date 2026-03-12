@@ -1,5 +1,6 @@
 requests
 fake-useragent
 colorama
+asyncio
 flask
 gunicorn
